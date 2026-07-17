@@ -1,0 +1,17 @@
+# Caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Environments
+.venv/
+env/
+venv/
+.DS_Store
+
+# Heavy Assets
+data/
+models/*.pkl
+*.parquet
+*.feather
+*.csv

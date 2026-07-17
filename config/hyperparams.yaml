@@ -1,0 +1,14 @@
+lgbm_params:
+  objective: "binary"
+  boosting_type: "gbdt"
+  n_jobs: -1                  
+  learning_rate: 0.05
+  num_leaves: 31
+  max_depth: 6
+  min_child_samples: 20
+  scale_pos_weight: 3.0      
+  verbose: -1
+
+pipeline_params:
+  chunksize: 50000
+  output_format: "parquet"    
