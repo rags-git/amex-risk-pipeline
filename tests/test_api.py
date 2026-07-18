@@ -14,6 +14,7 @@ def test_predict_risk_approved():
     response = client.post("/api/v1/predict-risk", json=payload)
     assert response.status_code == 200
     data = response.json()
+    print(f"DEBUG DATA: {data}")
     assert data["decision_status"] == "APPROVED"
     assert data["risk_tier"] == "Low Risk"
 
@@ -27,5 +28,6 @@ def test_predict_risk_rejected():
     response = client.post("/api/v1/predict-risk", json=payload)
     assert response.status_code == 200
     data = response.json()
+    print(f"DEBUG DATA: {data}")
     assert data["decision_status"] == "REJECTED"
     assert data["risk_tier"] == "High Risk"
