@@ -1,34 +1,60 @@
-project_name: "amex-credit-risk-engine"
-data:
-  raw_train_path: "data/train.csv"
-  processed_parquet_dir: "data/processed/"
-  model_output_dir: "models/"
-  
-features:
-  numerical_aggregations: ['mean', 'std', 'min', 'max', 'last']
-  categorical_aggregations: ['count', 'last', 'nunique']
-  target_column: "target"
-  id_column: "customer_ID"
+# ==============================================================================
+# Credit Risk Underwriting Pipeline Configuration
+# ==============================================================================
 
-model:
-  name: "LightGBM"
-  folds: 5
-  seed: 42
-  params:
+# Core pipeline configuration block expected by src/data_pipeline.py
+pipeline:
+  project_name: "amex-risk-pipeline"
+  version: "1.0.0"
+  random_state: 42
+  
+  # Data paths relative to project root
+  data:
+    raw_data_path: "data/raw/"
+    processed_data_path: "data/processed/"
+    train_file: "train.csv"
+    test_file: "test.csv"
+    target_column: "target"
+    
+  # Feature engineering / Preprocessing settings
+  preprocessing:
+    missing_value_strategy: "median"  # options: mean, median, most_frequent
+    scaling_method: "standard"        # options: standard, minmax
+    categorical_encoding: "target"     # options: target, onehot, label
+    min_properties_filter: 1          # validation parameter for incoming dict structures
+
+# Machine Learning Engine Configuration
+models:
+  active_model: "lightgbm"
+  output_dir: "models/"
+  
+  # LightGBM Hyperparameters for Credit Risk modeling
+  lightgbm:
     objective: "binary"
     metric: "auc"
     boosting_type: "gbdt"
-    learning_rate: 0.03
+    n_estimators: 500
+    learning_rate: 0.05
     num_leaves: 31
     max_depth: 6
-    feature_fraction: 0.8
-    bagging_fraction: 0.8
-    bagging_freq: 5
-    n_estimators: 1500
-    verbose: -1
-    random_state: 42
+    subsample: 0.8
+    colsample_bytree: 0.8
+    n_jobs: -1
 
-api:
+  # Cross-validation Strategy
+  validation:
+    strategy: "stratified_kfold"
+    n_splits: 5
+    shuffle: true
+
+# Backend Service Configuration (FastAPI & Uvicorn)
+backend:
   host: "0.0.0.0"
   port: 8000
-  version: "v1"
+  workers: 2
+  debug: false
+  
+  # API Security and Request Validation
+  api_settings:
+    timeout_seconds: 30
+    enable_pydantic_validation: true
