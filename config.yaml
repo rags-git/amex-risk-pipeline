@@ -1,0 +1,34 @@
+project_name: "amex-credit-risk-engine"
+data:
+  raw_train_path: "data/train.csv"
+  processed_parquet_dir: "data/processed/"
+  model_output_dir: "models/"
+  
+features:
+  numerical_aggregations: ['mean', 'std', 'min', 'max', 'last']
+  categorical_aggregations: ['count', 'last', 'nunique']
+  target_column: "target"
+  id_column: "customer_ID"
+
+model:
+  name: "LightGBM"
+  folds: 5
+  seed: 42
+  params:
+    objective: "binary"
+    metric: "auc"
+    boosting_type: "gbdt"
+    learning_rate: 0.03
+    num_leaves: 31
+    max_depth: 6
+    feature_fraction: 0.8
+    bagging_fraction: 0.8
+    bagging_freq: 5
+    n_estimators: 1500
+    verbose: -1
+    random_state: 42
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  version: "v1"
