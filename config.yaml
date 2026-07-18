@@ -1,8 +1,4 @@
-# ==============================================================================
-# Credit Risk Underwriting Pipeline Configuration
-# ==============================================================================
 
-# Core pipeline configuration block expected by src/data_pipeline.py
 pipeline:
   project_name: "amex-risk-pipeline"
   version: "1.0.0"
@@ -53,8 +49,3 @@ backend:
   port: 8000
   workers: 2
   debug: false
-  
-  # API Security and Request Validation
-  api_settings:
-    timeout_seconds: 30
-    enable_pydantic_validation: true
