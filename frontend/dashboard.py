@@ -1,266 +1,163 @@
 import streamlit as st
 import requests
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
+import json
+import plotly.graph_objects as ob
 
-BACKEND_API_URL = "http://localhost:8000/api/v1/predict-risk"
-
+# Core Configuration Settings
 st.set_page_config(
-    layout="wide", 
-    page_title="CREDIT RISK INTELLIGENCE CONSOLE", 
-    page_icon=None
+    page_title="Credit Risk Intelligence Console",
+    layout="wide"
 )
 
-# Strict Institutional Corporate Theme CSS Injection
+# Core Gateway Configuration Variables
+BACKEND_BASE = "http://backend-service:8000"
+predict_url = f"{BACKEND_BASE}/api/v1/predict-risk"
+batch_url = f"{BACKEND_BASE}/api/v1/predict-batch"
+
+# Clean UI Action Button Custom Styling Matrix
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
-    
-    /* Global Container Structure Override */
-    html, body, [class*="css"], .stApp {
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
-        background-color: #000B1A !important;
-        color: #F3F4F6 !important;
-    }
-    
-    /* Strict Corporate Header Layout */
-    .amex-title {
-        font-size: 1.85rem;
-        font-weight: 700;
-        letter-spacing: 0.05rem;
-        color: #FFFFFF;
-        text-transform: uppercase;
-        margin-bottom: 2px;
-        border-left: 4px solid #4A90E2;
-        padding-left: 12px;
-    }
-    .amex-subtitle {
-        font-size: 0.85rem;
-        color: #6B7280;
-        text-transform: uppercase;
-        letter-spacing: 0.12rem;
-        margin-top: 0px;
-        margin-bottom: 35px;
-        padding-left: 16px;
-    }
-    
-    /* Integrated Corporate Header Text */
-    .amex-section-header {
-        font-size: 0.85rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.1rem;
-        color: #4A90E2;
-        padding-bottom: 8px;
-        margin-top: 10px;
-        margin-bottom: 18px;
-        border-bottom: 1px solid #1E293B;
-    }
-    
-    /* Rigid Data Outputs Fields */
-    .mono-value {
-        font-family: 'Roboto Mono', monospace !important;
-        font-size: 2.2rem !important;
-        font-weight: 700 !important;
-        letter-spacing: -0.05rem !important;
-    }
-    
-    .status-badge {
-        display: inline-block;
-        padding: 4px 12px;
-        font-family: 'Roboto Mono', monospace;
-        font-size: 0.8rem;
-        font-weight: 700;
-        border-radius: 0px;
-        text-transform: uppercase;
-        letter-spacing: 0.05rem;
-    }
-    .status-approved {
-        background-color: rgba(16, 185, 129, 0.1);
-        color: #10B981;
-        border: 1px solid #10B981;
-    }
-    .status-rejected {
-        background-color: rgba(239, 68, 68, 0.1);
-        color: #EF4444;
-        border: 1px solid #EF4444;
-    }
-    
-    /* Override Streamlit Inputs for Corporate Conformity */
-    div[data-baseweb="input"] {
-        background-color: #010B14 !important;
-        border: 1px solid #334155 !important;
-        border-radius: 0px !important;
-    }
-    input {
-        color: #F3F4F6 !important;
-        font-family: 'Roboto Mono', monospace !important;
-    }
-    
-    /* Institutional Primary Action Command Block */
     div.stButton > button:first-child {
-        background-color: #4A90E2 !important;
-        border: 1px solid #4A90E2 !important;
-        color: #FFFFFF !important;
-        font-weight: 700 !important;
-        font-size: 0.85rem !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.08rem !important;
-        padding: 14px 28px !important;
-        border-radius: 0px !important;
-        width: 100% !important;
-        transition: background-color 0.15s ease-in-out !important;
+        background-color: #0077b6; 
+        color: white; 
+        border-radius: 4px; 
+        font-weight: bold; 
+        width: 100%; 
+        border: none; 
+        padding: 0.6rem;
     }
-    div.stButton > button:first-child:hover {
-        background-color: #357ABD !important;
-        border-color: #357ABD !important;
+    div.stButton > button:first-child:hover { 
+        background-color: #0096c7; 
+        color: white; 
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Main Terminal Branding Header
-st.markdown('<div class="amex-title">RISK INTELLIGENCE AND PORTFOLIO UNDERWRITING ENGINE</div>', unsafe_allow_html=True)
-st.markdown('<div class="amex-subtitle">REAL-TIME INFERENCE GATEWAY & SYSTEMS CALIBRATION FRAMEWORK</div>', unsafe_allow_html=True)
+st.title("RISK INTELLIGENCE AND PORTFOLIO UNDERWRITING ENGINE")
+st.caption("REAL-TIME INFERENCE GATEWAY & SYSTEMS CALIBRATION FRAMEWORK")
 
-# Main Grid Processing Matrix
-col_left, col_right = st.columns([1, 1.4], gap="large")
+# Sidebar Configuration Parameters
+with st.sidebar:
+    st.header("SYSTEM PARAMETERS")
+    risk_threshold = st.slider("RISK CEILING DECISION THRESHOLD", 0.0, 1.0, 0.15)
 
-with col_left:
-    # Systems Configuration Parameters
-    st.sidebar.markdown('<p style="font-size:0.8rem; font-weight:700; color:#9CA3AF; letter-spacing:0.1rem; text-transform:uppercase; margin-bottom:15px;">SYSTEM PARAMETERS</p>', unsafe_allow_html=True)
-    policy_threshold = st.sidebar.slider(
-        "RISK CEILING DECISION THRESHOLD", 
-        min_value=0.01, max_value=1.00, value=0.15, step=0.01
-    )
+# Interface Tab Workspace Split Selection Architecture
+tab1, tab2, tab3 = st.tabs(["INDIVIDUAL EVALUATION", "BATCH PROCESSING OVERVIEW", "EXPLAINABLE AI (XAI) MATRIX"])
+
+with tab1:
+    col1, col2 = st.columns([1, 1.2])
     
-    st.markdown('<div class="amex-section-header">ACCOUNT ASSESSMENT PIPELINE</div>', unsafe_allow_html=True)
-    
-    c_id = st.text_input("CUSTOMER IDENTIFICATION HASH", "0000099db563072c3d5e7")
-    
-    st.markdown("<br><p style='font-size:0.75rem; font-weight:700; color:#6B7280; letter-spacing:0.08rem; text-transform:uppercase; margin-bottom:10px;'>High-Dimensional Feature Vectors</p>", unsafe_allow_html=True)
-    p_2 = st.slider("PAYMENT FACTOR METRIC (P_2 MEAN)", 0.0, 1.0, 0.75)
-    d_39 = st.slider("DELINQUENCY METRIC (D_39 MAX)", 0.0, 1.0, 0.05)
-    b_1 = st.slider("BALANCE VELOCITY METRIC (B_1 LAST)", 0.0, 1.0, 0.12)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("RUN UNDERWRITING INFERENCE MATRIX"):
-        payload = {"customer_ID": c_id, "P_2_mean": p_2, "D_39_max": d_39, "B_1_last": b_1}
+    with col1:
+        st.subheader("ACCOUNT ASSESSMENT PIPELINE")
+        customer_id = st.text_input("CUSTOMER IDENTIFICATION HASH", "0000099db563072c3d5e7")
+        st.write("---")
+        st.write("**HIGH-DIMENSIONAL FEATURE VECTORS**")
+        p2_mean = st.slider("PAYMENT FACTOR METRIC (P_2 MEAN)", 0.0, 1.0, 0.75)
+        d39_max = st.slider("DELINQUENCY METRIC (D_39 MAX)", 0.0, 1.0, 0.05)
+        b1_last = st.slider("BALANCE VELOCITY METRIC (B_1 LAST)", 0.0, 1.0, 0.12)
+        execute_inference = st.button("RUN UNDERWRITING INFERENCE MATRIX")
+
+    with col2:
+        st.subheader("BEHAVIORAL HISTORICAL TREND DATA SUMMARY")
+        fig = ob.Figure()
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+        fig.add_trace(ob.Scatter(x=months, y=[0.24, 0.58, 0.45, 0.41, 0.15, 0.18], name="SPEND METRIC VARIANCE (S_*)", line=dict(color='#0077b6')))
+        fig.add_trace(ob.Scatter(x=months, y=[0.29, 0.66, 0.48, 0.43, 0.12, 0.21], name="PAYMENT METRIC VARIANCE (P_*)", line=dict(color='#ffb703', dash='dash')))
+        fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=300)
+        st.plotly_chart(fig, use_container_width=True)
+
+    if execute_inference:
+        payload = {
+            "customer_ID": customer_id,
+            "PAYMENT FACTOR METRIC (P_2 MEAN)": p2_mean,
+            "DELINQUENCY METRIC (D_39 MAX)": d39_max,
+            "BALANCE VELOCITY METRIC (B_1 LAST)": b1_last
+        }
         try:
-            res = requests.post(BACKEND_API_URL, json=payload)
-            if res.status_code == 200:
-                data = res.json()
-                prob = data["default_probability"]
-                simulated_decision = "APPROVED" if prob <= policy_threshold else "REJECTED"
-                
-                badge_class = "status-approved" if simulated_decision == "APPROVED" else "status-rejected"
-                
-                st.markdown(f"""
-                    <div style="border-top: 1px solid #1E293B; margin-top: 25px; padding-top: 20px;">
-                        <div style="font-size:0.75rem; font-weight:700; color:#6B7280; letter-spacing:0.05rem; text-transform:uppercase;">MODEL OUTPUT DEFAULT PROBABILITY</div>
-                        <div class="mono-value" style="color: #FFFFFF; margin-bottom:12px;">{prob:.4f}</div>
-                        <div style="margin-bottom:20px;">
-                            <span class="status-badge {badge_class}">DECISION STATUS: {simulated_decision}</span>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                grid_col1, grid_col2 = st.columns(2)
-                with grid_col1:
-                    st.markdown(f"""
-                        <div style="background-color:#010B14; border: 1px solid #1E293B; padding:14px;">
-                            <div style="font-size:0.7rem; font-weight:700; color:#6B7280; letter-spacing:0.04rem; text-transform:uppercase; margin-bottom:4px;">RISK CLASSIFICATION</div>
-                            <div style="font-size:1rem; font-weight:700; color:#F3F4F6; text-transform:uppercase;">{data["risk_tier"]}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                with grid_col2:
-                    st.markdown(f"""
-                        <div style="background-color:#010B14; border: 1px solid #1E293B; padding:14px;">
-                            <div style="font-size:0.7rem; font-weight:700; color:#6B7280; letter-spacing:0.04rem; text-transform:uppercase; margin-bottom:4px;">RECOMMENDED CREDIT LIMIT</div>
-                            <div style="font-size:1rem; font-weight:700; color:#4A90E2; font-family:'Roboto Mono', monospace;">USD {data['recommended_credit_limit']:,}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
-                with st.expander("SYSTEM LOG: RAW COMPLIANCE PAYLOAD JSON"):
-                    st.json(data)
+            response = requests.post(predict_url, json=payload, timeout=10)
+            if response.status_code == 200:
+                result = response.json()
+                st.success("INFERENCE MATRIX PROTOCOL COMPLETED SUCCESSFULLY")
+                res_col1, res_col2 = st.columns(2)
+                with res_col1:
+                    st.metric("DEFAULT PROBABILITY SCORE", f"{result['default_probability'] * 100:.2f}%")
+                    st.metric("PORTFOLIO RISK CLASSIFICATION", result['risk_tier'])
+                with res_col2:
+                    st.metric("RECOMMENDED CREDIT BOUNDARY", f"${result['recommended_credit_limit']:.2f}")
+                    
+                    # Safe multi-line check blocks to guarantee truncation immunity
+                    if result['default_probability'] <= risk_threshold:
+                        status_eval = "APPROVED"
+                    else:
+                        status_eval = "REJECTED"
+                        
+                    st.metric("DECISION MATRIX CONCLUSION", status_eval)
             else:
-                st.error("SYSTEM ERROR: BACKEND SCHEMA MISMATCH.")
+                st.error("SYSTEM ERROR: BACKEND SCHEMA MISMATCH OR EXCEPTION.")
         except Exception as e:
-            st.error(f"SYSTEM ERROR: SERVICE LINK UNREACHABLE: {e}")
+            st.error(f"CONNECTION TIMEOUT GATEWAY FAULT: {str(e)}")
 
-with col_right:
-    # Portfolio Trajectory Analytics Window
-    st.markdown('<div class="amex-section-header">BEHAVIORAL HISTORICAL TREND DATA SUMMARY</div>', unsafe_allow_html=True)
+with tab2:
+    st.subheader("BATCH PROCESSING OVERVIEW INTERFACE TERMINAL")
+    st.markdown("Upload bulk pipeline batch array blocks here formatted as standard JSON arrays containing evaluation profile maps:")
     
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-    spend_curve = np.array([0.24, 0.58, 0.45, 0.41, 0.15, 0.18])
-    payment_curve = np.array([0.29, 0.65, 0.48, 0.43, 0.12, 0.21])
+    mock_template = [
+        {"customer_ID": "CUST_SAMPLE_A", "PAYMENT FACTOR METRIC (P_2 MEAN)": 0.85, "DELINQUENCY METRIC (D_39 MAX)": 0.02, "BALANCE VELOCITY METRIC (B_1 LAST)": 0.05},
+        {"customer_ID": "CUST_SAMPLE_B", "PAYMENT FACTOR METRIC (P_2 MEAN)": 0.21, "DELINQUENCY METRIC (D_39 MAX)": 0.68, "BALANCE VELOCITY METRIC (B_1 LAST)": 0.45}
+    ]
+    st.download_button("Download Template Sample Profile Schema", data=json.dumps(mock_template, indent=2), file_name="amex_batch_template.json")
     
-    fig = go.Figure()
+    uploaded_batch = st.file_uploader("Submit Account Assessment Batch Package File", type=["json"])
+    if uploaded_batch is not None:
+        if st.button("Trigger Async Pipeline Engine Execution"):
+            try:
+                files = {"file": (uploaded_batch.name, uploaded_batch.getvalue(), "application/json")}
+                resp = requests.post(batch_url, files=files, timeout=10)
+                if resp.status_code == 202:
+                    st.info(f"Batch queued into tracking registry context stack frame target: {resp.json()['batch_id']}")
+                else:
+                    st.error(resp.text)
+            except Exception as e:
+                st.error(str(e))
+                
+    st.write("---")
+    st.write("**POLL PROCESSING METRIC QUEUE STATUS**")
+    check_id = st.text_input("Enter Active Tracking Task Pointer Key", "BATCH_1")
+    if st.button("Query Queue Processing Context"):
+        try:
+            status_resp = requests.get(f"{BACKEND_BASE}/api/v1/batch-status/{check_id}")
+            if status_resp.status_code == 200:
+                st.json(status_resp.json())
+            else:
+                st.error("Tracking ID allocation index reference mapping target context mismatch.")
+        except Exception as e:
+            st.error(str(e))
+
+with tab3:
+    st.subheader("EXPLAINABLE AI (XAI) ATTRIBUTION ENGINE")
+    st.markdown("Renders local attribution metrics tracking feature impact vectors via Shapley charts.")
     
-    # Amex Style Time Series Representation: Direct Linear Coordinates with Square Grid Backing
-    fig.add_trace(go.Scatter(
-        x=months, y=spend_curve,
-        mode='lines+markers',
-        name='SPEND METRIC VARIANCE (S_*)',
-        line=dict(color='#4A90E2', width=2, shape='linear'),
-        marker=dict(size=6, symbol='square', color='#4A90E2')
-    ))
-    
-    fig.add_trace(go.Scatter(
-        x=months, y=payment_curve,
-        mode='lines+markers',
-        name='PAYMENT METRIC VARIANCE (P_*)',
-        line=dict(color='#9CA3AF', width=2, shape='linear', dash='dash'),
-        marker=dict(size=6, symbol='circle', color='#9CA3AF')
-    ))
-    
-    fig.update_layout(
-        template="plotly_dark",
-        hovermode="x unified",
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=40, r=20, t=10, b=30),
-        font=dict(family="Roboto Mono, monospace", size=11),
-        xaxis=dict(
-            showgrid=True, 
-            gridcolor='#1E293B', 
-            tickfont=dict(color='#9CA3AF'),
-            showline=True,
-            linecolor='#1E293B'
-        ),
-        yaxis=dict(
-            showgrid=True, 
-            gridcolor='#1E293B', 
-            title=dict(
-                text="AGGREGATE METRIC RATIO VALUE",
-                font=dict(color='#6B7280', size=10, family="Roboto Mono, monospace")
-            ),
-            tickfont=dict(color='#9CA3AF'),
-            showline=True,
-            linecolor='#1E293B'
-        ),
-        legend=dict(
-            orientation="h", 
-            yanchor="bottom", 
-            y=1.05, 
-            xanchor="left", 
-            x=0,
-            font=dict(size=10, color='#9CA3AF')
-        )
-    )
-    st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
-    
-    # Policy System Impact Log Block
-    st.markdown('<div class="amex-section-header">MONTE CARLO SIMULATION ANALYSIS</div>', unsafe_allow_html=True)
-    
-    mock_portfolio_probs = np.random.beta(a=2, b=8, size=1000)
-    approved_pct = (mock_portfolio_probs <= policy_threshold).mean()
-    
-    st.markdown(f"""
-        <p style="margin:0; font-size: 0.85rem; color: #9CA3AF; line-height: 1.6; font-family: 'Roboto Mono', monospace;">
-            [PARAM CALIBRATION] CRITERIA LIMIT SET TO: <span style="color:#FFFFFF; font-weight:700;">{policy_threshold:.2f}</span><br>
-            [SIMULATION RES] APPROVAL RUN EXTRACTS AN AUTOMATED VELOCITY CONVERGENCE OF: 
-            <span style="color: #4A90E2; font-weight: 700;">{approved_pct:.2%}</span> ACROSS TARGET SAMPLES.
-        </p>
-    """, unsafe_allow_html=True)
+    search_id = st.text_input("Target Profiling Verification Index Tag (Customer ID)", "0000099db563072c3d5e7")
+    if st.button("Compute Local Shapley Optimization Vector"):
+        try:
+            explain_resp = requests.get(f"{BACKEND_BASE}/api/v1/explain/{search_id}")
+            if explain_resp.status_code == 200:
+                xai_data = explain_resp.json()
+                
+                st.write(f"**Baseline Prediction Matrix Base Value:** `{xai_data['base_expected_value']}`")
+                st.write(f"**Final Evaluated Target Risk Probability Output Value:** `{xai_data['final_predicted_probability']}`")
+                
+                features = [item["feature"] for item in xai_data["shap_attributions"]]
+                values = [item["shap_value"] for item in xai_data["shap_attributions"]]
+                
+                # Render horizontal attribution map inside Plotly workspace
+                shap_fig = ob.Figure(ob.Bar(
+                    x=values, y=features, orientation='h',
+                    marker=dict(color=['#2a9d8f' if val < 0 else '#e63946' for val in values])
+                ))
+                shap_fig.update_layout(title="SHAP Feature Attribution Factor Influence Maps", template="plotly_dark")
+                st.plotly_chart(shap_fig, use_container_width=True)
+            else:
+                st.warning("Ensure that an individual inference run under Tab 1 has been executed for this requested customer ID first.")
+        except Exception as e:
+            st.error(str(e))

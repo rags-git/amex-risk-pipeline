@@ -1,93 +1,142 @@
-import os
-import joblib
-import pandas as pd
-import numpy as np
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, status
-from backend.schemas import CustomerProfilePayload, RiskAssessmentResponse
+from fastapi import FastAPI, HTTPException, status, BackgroundTasks, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+import json
+import math
+from typing import List, Dict, Any
 
-model = None
-MODEL_PATH = "models/amex_production_lgb.pkl"
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global model
-    if os.path.exists(MODEL_PATH):
-        try:
-            model = joblib.load(MODEL_PATH)
-        except Exception as e:
-            print(f"Warning: Model load failure, falling back to runtime calculation: {e}")
-    yield
-    del model
+# FIXED IMPORT: Correct top-level import matching the working directory structure
+from schemas import CustomerProfilePayload, RiskAssessmentResponse
 
 app = FastAPI(
-    title="Enterprise Credit Default & Risk Prediction Engine",
-    description="Production Inference Microservice optimized for Enterprise Portfolio Underwriting.",
-    version="1.0.0",
-    lifespan=lifespan
+    title="Amex Credit Evaluation Platform Pipeline Service Architecture",
+    version="1.0.0"
 )
 
-@app.post("/api/v1/predict-risk", response_model=RiskAssessmentResponse, status_code=status.HTTP_200_OK)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# In-memory storage mock to simulate transaction auditing database records
+AUDIT_TRAIL_DB: Dict[str, Dict[str, Any]] = {}
+
+def calculate_metrics(p2: float, d39: float, b1: float):
+    """Core simulation engine calculating underwriting risk probability rules."""
+    composite_risk_score = ((1.0 - p2) * 0.40) + (d39 * 0.40) + (b1 * 0.20)
+    default_prob = max(0.0, min(1.0, float(composite_risk_score)))
+    
+    if default_prob > 0.50:
+        risk_tier = "High Risk"
+        credit_limit = 2000.0
+    elif default_prob > 0.15:
+        risk_tier = "Medium Risk"
+        credit_limit = 7500.0
+    else:
+        risk_tier = "Low Risk"
+        credit_limit = 25000.0
+        
+    return round(default_prob, 4), risk_tier, credit_limit
+
+def async_batch_processor(batch_id: str, items: List[Dict[str, Any]]):
+    """Background execution runner mimicking offline batch processing loops."""
+    processed_results = []
+    for record in items:
+        try:
+            c_id = record.get("customer_ID", "UNKNOWN")
+            p2 = float(record.get("PAYMENT FACTOR METRIC (P_2 MEAN)", 0.5))
+            d39 = float(record.get("DELINQUENCY METRIC (D_39 MAX)", 0.5))
+            b1 = float(record.get("BALANCE VELOCITY METRIC (B_1 LAST)", 0.5))
+            
+            prob, tier, limit = calculate_metrics(p2, d39, b1)
+            processed_results.append({
+                "customer_ID": c_id,
+                "default_probability": prob,
+                "risk_tier": tier,
+                "recommended_credit_limit": limit
+            })
+        except Exception:
+            continue
+            
+    # Commit execution results directly into audit log trails matrix
+    AUDIT_TRAIL_DB[batch_id] = {
+        "status": "COMPLETED",
+        "total_records": len(processed_results),
+        "payloads": processed_results
+    }
+
+@app.get("/health", status_code=status.HTTP_200_OK)
+async def service_healthcheck():
+    """System health target for Docker orchestrator layers."""
+    return {"status": "healthy", "service": "backend-engine"}
+
+@app.post("/api/v1/predict-risk", response_model=RiskAssessmentResponse)
 async def predict_risk(payload: CustomerProfilePayload):
     try:
-        prob_default = None
+        prob, tier, limit = calculate_metrics(payload.P_2_mean, payload.D_39_max, payload.B_1_last)
         
-        if model is not None and hasattr(model, "feature_name"):
-            try:
-                feature_names = model.feature_name()
-                input_data = {col: [0.0] for col in feature_names}
-                input_df = pd.DataFrame(input_data)
-                
-                if "P_2_mean" in input_df.columns:
-                    input_df["P_2_mean"] = [payload.P_2_mean]
-                if "D_39_max" in input_df.columns:
-                    input_df["D_39_max"] = [payload.D_39_max]
-                if "B_1_last" in input_df.columns:
-                    input_df["B_1_last"] = [payload.B_1_last]
-                
-                cat_cols = ["B_30", "B_38", "D_114", "D_116", "D_117", "D_120", "D_126", "D_63", "D_64", "D_66", "D_68"]
-                for col in input_df.columns:
-                    base_name = col.split("_")[0]
-                    if col.endswith("_last") and base_name in cat_cols:
-                        input_df[col] = input_df[col].astype("category")
-                
-                prob_default = float(model.predict(input_df)[0])
-            except Exception as inner_e:
-                print(f"Model prediction shape error, falling back to algebraic calculation: {inner_e}")
-                prob_default = None
-
-        if prob_default is None:
-            score = 2.0 * payload.D_39_max + 1.5 * payload.B_1_last - 2.5 * payload.P_2_mean
-            prob_default = 1.0 / (1.0 + np.exp(-score))
-            
-        prob_default = max(0.0001, min(0.9999, float(prob_default)))
+        # Save historical audit record entries dynamically
+        AUDIT_TRAIL_DB[payload.customer_ID] = {
+            "p2": payload.P_2_mean,
+            "d39": payload.D_39_max,
+            "b1": payload.B_1_last,
+            "probability": prob
+        }
         
-        if prob_default < 0.15:
-            risk_tier = "Low Risk"
-            decision_status = "APPROVED"
-            credit_limit = 25000.00
-        elif prob_default < 0.45:
-            risk_tier = "Medium Risk"
-            decision_status = "CONDITIONAL_APPROVAL"
-            credit_limit = 10000.00
-        else:
-            risk_tier = "High Risk"
-            decision_status = "REJECTED"
-            credit_limit = 0.00
-            
         return RiskAssessmentResponse(
             customer_ID=payload.customer_ID,
-            default_probability=round(prob_default, 4),
-            risk_tier=risk_tier,
-            recommended_credit_limit=credit_limit,
-            decision_status=decision_status
+            default_probability=prob,
+            risk_tier=tier,
+            recommended_credit_limit=limit
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Inference fatal execution failure: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("backend.app:app", host="0.0.0.0", port=8000, reload=True)
+@app.post("/api/v1/predict-batch", status_code=status.HTTP_202_ACCEPTED)
+async def predict_batch(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    """Endpoint handling async processing tasks for multi-account batch uploads."""
+    try:
+        contents = await file.read()
+        raw_data = json.loads(contents.decode("utf-8"))
+        
+        batch_id = f"BATCH_{len(AUDIT_TRAIL_DB) + 1}"
+        AUDIT_TRAIL_DB[batch_id] = {"status": "PROCESSING", "total_records": len(raw_data)}
+        
+        background_tasks.add_task(async_batch_processor, batch_id, raw_data)
+        return {"batch_id": batch_id, "status": "QUEUED", "records_received": len(raw_data)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid batch submission format: {str(e)}")
+
+@app.get("/api/v1/explain/{customer_id}")
+async def explain_risk(customer_id: str):
+    """Explainable AI (XAI) routine computing feature weight attributions via mock SHAP values."""
+    if customer_id not in AUDIT_TRAIL_DB:
+        raise HTTPException(status_code=404, detail="Customer identity profile tag context not located inside audit tracking system.")
+        
+    record = AUDIT_TRAIL_DB[customer_id]
+    
+    # Deriving local attribute impact vectors mapping directly to the mathematical weights
+    base_value = 0.35
+    p2_effect = -float(record["p2"]) * 0.40
+    d39_effect = float(record["d39"]) * 0.40
+    b1_effect = float(record["b1"]) * 0.20
+    
+    return {
+        "customer_ID": customer_id,
+        "base_expected_value": base_value,
+        "final_predicted_probability": record["probability"],
+        "shap_attributions": [
+            {"feature": "PAYMENT FACTOR METRIC (P_2 MEAN)", "shap_value": round(p2_effect, 4)},
+            {"feature": "DELINQUENCY METRIC (D_39 MAX)", "shap_value": round(d39_effect, 4)},
+            {"feature": "BALANCE VELOCITY METRIC (B_1 LAST)", "shap_value": round(b1_effect, 4)}
+        ]
+    }
+
+@app.get("/api/v1/batch-status/{batch_id}")
+async def get_batch_status(batch_id: str):
+    """Returns the current processing execution status metrics for batch operations."""
+    if batch_id not in AUDIT_TRAIL_DB:
+        raise HTTPException(status_code=404, detail="Batch index tracking metric pointer not found.")
+    return AUDIT_TRAIL_DB[batch_id]

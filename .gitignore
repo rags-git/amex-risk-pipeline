@@ -1,17 +1,22 @@
-# Caches
+# Python Bytecode Caches
 __pycache__/
 *.py[cod]
+*$py.class
 .pytest_cache/
+.cache/
 
-# Environments
-.venv/
+# System Environment Metadata
+.DS_Store
+.env
+.venv
 env/
 venv/
-.DS_Store
 
-# Heavy Assets
-data/
-models/*.pkl
-*.parquet
-*.feather
-*.csv
+# Docker Local Volumetric Cache Frames
+.docker/
+*.log
+
+# Project-Specific Large Data Pipelines
+data/raw/
+data/processed/
+*.json.bak
